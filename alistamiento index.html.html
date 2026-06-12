@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Alistamiento de Vehículos</title>
+<style>
+  :root {
+    --bg:       #0B1628;
+    --surface:  #1A2740;
+    --surface2: #0F1C2E;
+    --border:   #1E3A5F;
+    --border2:  #334155;
+    --text:     #F1F5F9;
+    --muted:    #64748B;
+    --sub:      #94A3B8;
+    --amber:    #F59E0B;
+    --green:    #10B981;
+    --blue:     #3B82F6;
+    --purple:   #8B5CF6;
+    --pink:     #EC4899;
+    --red:      #EF4444;
+    --yellow:   #EAB308;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text); min-height: 100vh; }
+
+  /* ── Header ── */
+  #header { background: var(--surface2); border-bottom: 1px solid var(--border);
+    padding: 0 20px; position: sticky; top: 0; z-index: 100; }
+  #header-inner { max-width: 1200px; margin: 0 auto; height: 56px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #logo { display: flex; align-items: center; gap: 10px; }
+  #logo-icon { width: 34px; height: 34px; background: var(--amber); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  #logo-title { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
+  #logo-sub { font-size: 10px; color: var(--muted); }
+  #header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── Botones ── */
+  .btn { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    font-size: 13px; font-weight: 600; font-family: inherit; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-amber  { background: var(--amber); color: #0F1C2E; font-weight: 800; }
+  .btn-ghost  { background: var(--surface); border: 1px solid var(--border2); color: var(--muted); }
+  .btn-blue   { background: #1E3A5F; border: 1px solid var(--blue); color: #93C5FD; }
+  .btn-danger { background: none; border: 1px solid #EF444430; color: var(--red); }
+  .btn-tab    { background: none; border: 1px solid var(--border2); color: var(--muted); }
+  .btn-tab.active { background: #1E3A5F; border-color: var(--blue); color: #93C5FD; font-weight: 700; }
+
+  /* ── Main ── */
+  #main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ── Sync bar ── */
+  #sync-bar { display: flex; align-items: center; gap: 10px; background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 10px; padding: 10px 16px;
+    margin-bottom: 16px; font-size: 12px; flex-wrap: wrap; }
+  #sync-status { display: flex; align-items: center; gap: 6px; }
+  #sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  #sync-dot.ok  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  #sync-dot.err { background: var(--red); }
+  #sync-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  #last-sync { color: var(--muted); margin-left: auto; }
+  #btn-sync { padding: 5px 12px; font-size: 11px; }
+
+  /* ── Ops banner ── */
+  #ops-banner { background: #1E3A5F; border: 1px solid #3B82F640; border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 16px; display: none;
+    align-items: center; gap: 8px; font-size: 13px; }
+  #ops-banner.show { display: flex; }
+
+  /* ── Filtros ── */
+  #filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  #filters input, #filters select { background: var(--surface); border: 1px solid var(--border2);
+    color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px;
+    font-family: inherit; cursor: pointer; outline: none; }
+  #filters input { flex: 1 1 180px; min-width: 150px; }
+  #count { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+  /* ── Grid ── */
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%,300px),1fr)); gap: 14px; }
+  .empty { text-align: center; padding: 60px 20px; color: var(--border2); grid-column: 1/-1; }
+  .empty-icon { font-size: 44px; margin-bottom: 12px; }
+
+  /* ── Card ── */
+  .card { background: var(--surface); border-radius: 12px; border: 1px solid var(--border2);
+    padding: 16px; display: flex; flex-direction: column; gap: 0;
+    transition: transform .15s; }
+  .card:hover { transform: translateY(-2px); }
+  .card.urgente { border-color: #EF444430; box-shadow: 0 0 0 1px #EF444415; }
+  .card.entregado { border-color: #10B98130; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-name { font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .card-badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+  .card-info { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .card-info span { font-size: 12px; color: var(--sub); }
+  .card-info .placa { color: var(--amber); font-weight: 700; }
+  .card-obs { margin-top: 8px; font-size: 11px; color: var(--sub); background: var(--surface2);
+    border-radius: 6px; padding: 6px 10px; font-style: italic; }
+  .card-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .card-actions .btn { flex: 1; font-size: 12px; padding: 7px; text-align: center; }
+
+  /* ── Badge ── */
+  .badge { display: inline-block; border-radius: 20px; padding: 3px 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
+    border: 1px solid transparent; }
+  .badge-sm { padding: 1px 8px; font-size: 10px; }
+
+  /* ── Progress ── */
+  .progress-wrap { margin-top: 10px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 10px;
+    color: var(--muted); margin-bottom: 3px; }
+  .progress-bar-bg { background: var(--surface2); border-radius: 4px; height: 5px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+  .progress-dots { display: flex; justify-content: space-between; margin-top: 4px; }
+  .progress-dot { width: 10px; height: 10px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border2); transition: background .3s; }
+
+  /* ── KPIs ── */
+  #kpi-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border-radius: 10px; padding: 14px 16px; border: 1px solid transparent; }
+  .kpi-icon { font-size: 20px; }
+  .kpi-value { font-size: 26px; font-weight: 900; line-height: 1.1; margin-top: 4px; }
+  .kpi-label { font-size: 10px; color: var(--muted); margin-top: 3px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .5px; }
+
+  /* ── Pipeline / Vendedor charts ── */
+  .section-title { font-size: 13px; font-weight: 700; color: var(--sub); margin-bottom: 14px;
+    text-transform: uppercase; letter-spacing: .5px; }
+  .chart-card { background: var(--surface); border-radius: 12px; padding: 18px;
+    border: 1px solid var(--border2); margin-bottom: 16px; }
+  .pipe-row { margin-bottom: 10px; }
+  .pipe-labels { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .vend-row { display: flex; align-items: center; gap: 10px; background: var(--surface2);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .vend-name { font-size: 13px; font-weight: 700; flex: 1 1 140px; }
+  .vend-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .vend-stats span { font-size: 11px; }
+
+  /* ── Modales ── */
+  .modal-overlay { position: fixed; inset: 0; background: #000C; z-index: 2000;
+    display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { background: var(--surface); border-radius: 14px; width: 100%; max-width: 520px;
+    max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 60px #0009; }
+  .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border2);
+    display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 15px; font-weight: 800; }
+  .modal-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; }
+  .modal-body { padding: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .modal-footer { padding: 0 22px 22px; display: flex; gap: 10px; justify-content: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1/-1; }
+  .field label { font-size: 11px; color: var(--sub); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .5px; }
+  .field input, .field select, .field textarea {
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+    color: var(--text); padding: 8px 12px; font-size: 13px; font-family: inherit;
+    width: 100%; outline: none; }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .toggle-grid { display: grid; gap: 8px; }
+  .toggle-grid.cols3 { grid-template-columns: repeat(3,1fr); }
+  .toggle-grid.cols3p { grid-template-columns: repeat(3,1fr); }
+  .toggle-btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--muted);
+    border-radius: 8px; padding: 8px 4px; cursor: pointer; font-size: 11px; font-weight: 700;
+    font-family: inherit; transition: all .15s; text-align: center; }
+  .toggle-btn.active { /* set via JS */ }
+
+  /* ── PIN ── */
+  #pin-modal .modal { max-width: 320px; text-align: center; }
+  #pin-icon { font-size: 32px; margin-bottom: 8px; }
+  #pin-input { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px;
+    color: var(--text); padding: 12px; font-size: 20px; width: 100%; text-align: center;
+    letter-spacing: 8px; outline: none; font-family: inherit; transition: border .2s; }
+  #pin-input.error { border-color: var(--red); background: #3D0E0E; }
+  #pin-error { color: var(--red); font-size: 12px; margin-top: 8px; min-height: 16px; }
+  #pin-hint { font-size: 10px; color: var(--border2); margin-top: 12px; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 10px; padding: 12px 18px;
+    font-size: 13px; z-index: 9999; opacity: 0; transform: translateY(10px);
+    transition: all .25s; pointer-events: none; max-width: 300px; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error   { border-color: var(--red);   color: var(--red); }
+
+  /* ── Loading overlay ── */
+  #loading { position: fixed; inset: 0; background: var(--bg); z-index: 9998;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  #loading.hide { display: none; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border2);
+    border-top-color: var(--amber); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media(max-width:480px) {
+    #header-inner { height: auto; padding: 10px 0; }
+    .modal-body { grid-template-columns: 1fr; }
+    .field.full { grid-column: 1; }
+    .toggle-grid.cols3 { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--muted)">Conectando con Google Sheets…</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Header -->
+<div id="header">
+  <div id="header-inner">
+    <div id="logo">
+      <div id="logo-icon">🚗</div>
+      <div>
+        <div id="logo-title">Alistamiento de Vehículos</div>
+        <div id="logo-sub" id="active-count">Cargando…</div>
+      </div>
+    </div>
+    <div id="header-actions">
+      <button class="btn btn-tab active" id="tab-tablero" onclick="setVista('tablero')">📋 Tablero</button>
+      <button class="btn btn-tab" id="tab-gerente" onclick="setVista('gerente')">📊 Gerencia</button>
+      <button class="btn btn-ghost" id="btn-ops" onclick="abrirPin()">🔧 Operaciones</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Sync bar -->
+  <div id="sync-bar">
+    <div id="sync-status">
+      <div id="sync-dot" class="loading"></div>
+      <span id="sync-text">Conectando…</span>
+    </div>
+    <button class="btn btn-ghost btn-tab" id="btn-sync" onclick="cargarDatos()">↻ Sincronizar</button>
+    <span id="last-sync"></span>
+  </div>
+
+  <!-- Ops banner -->
+  <div id="ops-banner">
+    <span style="font-size:16px">🔧</span>
+    <span style="color:#93C5FD;font-weight:600">Modo Operaciones activo</span>
+    <span style="color:var(--muted)">— Puedes editar estados y agregar vehículos</span>
+    <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 10px"
+      onclick="salirOps()">🔒 Salir</button>
+  </div>
+
+  <!-- Vista Tablero -->
+  <div id="vista-tablero">
+    <div id="filters">
+      <input type="text" id="busqueda" placeholder="🔍 Buscar placa, marca, vendedor…" oninput="renderGrid()">
+      <select id="fil-vendedor" onchange="renderGrid()">
+        <option value="">👤 Todos los vendedores</option>
+      </select>
+      <select id="fil-estado" onchange="renderGrid()">
+        <option value="">📋 Todos los estados</option>
+      </select>
+      <select id="fil-prioridad" onchange="renderGrid()">
+        <option value="">⚡ Toda prioridad</option>
+        <option value="urgente">Urgente</option>
+        <option value="alta">Alta</option>
+        <option value="normal">Normal</option>
+      </select>
+      <button class="btn btn-ghost" id="btn-activos" onclick="toggleActivos()">Solo activos</button>
+      <button class="btn btn-amber" id="btn-nuevo" style="display:none" onclick="abrirNuevo()">➕ Nuevo</button>
+    </div>
+    <div id="count"></div>
+    <div id="grid"></div>
+  </div>
+
+  <!-- Vista Gerencia -->
+  <div id="vista-gerente" style="display:none">
+    <div id="kpi-grid"></div>
+    <div class="chart-card">
+      <div class="section-title">Pipeline de alistamiento</div>
+      <div id="pipeline"></div>
+    </div>
+    <div class="chart-card">
+      <div class="section-title">Por vendedor</div>
+      <div id="por-vendedor"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar -->
+<div class="modal-overlay" id="modal-edit" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="edit-title">Editar vehículo</div>
+        <div class="modal-sub" id="edit-sub"></div>
+      </div>
+      <button class="modal-close" onclick="cerrarEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field full">
+        <label>Estado de alistamiento</label>
+        <div class="toggle-grid cols3" id="edit-estados"></div>
+      </div>
+      <div class="field full">
+        <label>Prioridad</label>
+        <div class="toggle-grid cols3p" id="edit-prioridades"></div>
+      </div>
+      <div class="field full">
+        <label>Fecha de entrega al cliente</label>
+        <input type="date" id="edit-fechaEntrega">
+        <span style="font-size:10px;color:var(--muted);margin-top:2px">Deja vacío si aún está en proceso</span>
+      </div>
+      <div class="field full">
+        <label>Vendedor</label>
+        <select id="edit-vendedor"></select>
+      </div>
+      <div class="field full">
+        <label>Observaciones</label>
+        <textarea id="edit-observaciones" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarEdit()">Cancelar</button>
+      <button class="btn btn-amber" onclick="guardarEdit()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nuevo -->
+<div class="modal-overlay" id="modal-nuevo" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Nuevo Vehículo</div>
+      <button class="modal-close" onclick="cerrarNuevo()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Placa</label><input type="text" id="n-placa"></div>
+      <div class="field"><label>Marca</label><input type="text" id="n-marca"></div>
+      <div class="field"><label>Modelo</label><input type="text" id="n-modelo"></div>
+      <div class="field"><label>Año</label><input type="number" id="n-ano"></div>
+      <div class="field"><label>Color</label><input type="text" id="n-color"></div>
+      <div class="field"><label>Kilometraje</label><input type="text" id="n-km"></div>
+      <div class="field"><label>Fecha Ingreso</label><input type="date" id="n-fechaIngreso"></div>
+      <div class="field"><label>Vendedor</label><select id="n-vendedor"></select></div>
+      <div class="field full">
+        <label>Estado inicial</label>
+        <div class="toggle-grid cols3" id="nuevo-estados"></div>
+      </div>
+      <div class="field full">
+        <label>Prioridad</label>
+        <div class="toggle-grid" style="grid-template-columns:repeat(3,1fr)" id="nuevo-prioridades"></div>
+      </div>
+      <div class="field full">
+        <label>Observaciones</label>
+        <textarea id="n-obs" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarNuevo()">Cancelar</button>
+      <button class="btn btn-amber" onclick="guardarNuevo()">Agregar al tablero</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal PIN -->
+<div class="modal-overlay" id="pin-modal" style="display:none">
+  <div class="modal" style="max-width:320px;text-align:center;padding:28px">
+    <div id="pin-icon">🔧</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:4px">Modo Operaciones</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Ingresa el PIN para editar</div>
+    <input type="password" id="pin-input" maxlength="6" placeholder="••••"
+      oninput="pinError(false)" onkeydown="if(event.key==='Enter')verificarPin()">
+    <div id="pin-error"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-ghost" style="flex:1" onclick="cerrarPin()">Cancelar</button>
+      <button class="btn btn-amber" style="flex:1" onclick="verificarPin()">Entrar</button>
+    </div>
+    <div id="pin-hint">PIN: 1234 (cámbialo en el código)</div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIGURACIÓN — EDITA ESTOS VALORES
+// ════════════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxrLM7rDFq7jUDyIpZmefIlpxWOoikvByMlnPycFKUq45SR8Kh_GGdkotQEWdF6Be4/exec";
+const PIN_OPERACIONES = "1234";
+const AUTO_SYNC_MS    = 60000; // refresca cada 60 segundos
+
+// ════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ════════════════════════════════════════════════════════════
+let vehicles   = [];
+let vendedores = [];
+let canEdit    = false;
+let soloActivos = false;
+let vistaActual = "tablero";
+let editId      = null;
+let nuevoEstado     = "recibido";
+let nuevoPrioridad  = "normal";
+let editEstadoVal   = "recibido";
+let editPrioVal     = "normal";
+let syncInterval    = null;
+
+// ════════════════════════════════════════════════════════════
+// CATÁLOGOS
+// ════════════════════════════════════════════════════════════
+const ESTADOS = [
+  { id:"recibido",        label:"Recibido",        color:"#94A3B8", bg:"#1E293B" },
+  { id:"pdi",             label:"PDI",              color:"#EAB308", bg:"#2D2A00" },
+  { id:"lavado",          label:"Lavado",           color:"#3B82F6", bg:"#1E3A5F" },
+  { id:"alistamiento",    label:"Alistamiento",     color:"#8B5CF6", bg:"#2D1B69" },
+  { id:"polarizado",      label:"Polarizado",       color:"#EC4899", bg:"#3D0E2A" },
+  { id:"listo_entregado", label:"Listo Entregado",  color:"#10B981", bg:"#064E3B" },
+];
+const FASES = ESTADOS.map(e => e.id);
+const PRIORIDADES = [
+  { id:"normal",  label:"Normal",  color:"#64748B" },
+  { id:"alta",    label:"Alta",    color:"#F59E0B" },
+  { id:"urgente", label:"Urgente", color:"#EF4444" },
+];
+
+const getEstado    = id => ESTADOS.find(e => e.id === id) || ESTADOS[0];
+const getPrioridad = id => PRIORIDADES.find(p => p.id === id) || PRIORIDADES[0];
+const dias = v => {
+  if (!v.fechaIngreso) return 0;
+  const fin = v.fechaEntrega ? new Date(v.fechaEntrega) : new Date();
+  return Math.floor((fin - new Date(v.fechaIngreso)) / 86400000);
+};
+const alertaColor = d => d >= 5 ? "#EF4444" : d >= 3 ? "#F59E0B" : "#10B981";
+const alertaLabel = d => d >= 5 ? "CRÍTICO" : d >= 3 ? "DEMORADO" : "OK";
+
+// ════════════════════════════════════════════════════════════
+// CONEXIÓN CON APPS SCRIPT
+// ════════════════════════════════════════════════════════════
+function setSyncStatus(state, text) {
+  const dot  = document.getElementById("sync-dot");
+  const txt  = document.getElementById("sync-text");
+  dot.className = ""; dot.classList.add(state);
+  txt.textContent = text;
+}
+
+async function cargarDatos() {
+  if (APPS_SCRIPT_URL === "TU_URL_AQUI_PLACEHOLDER_NO_REAL") {
+    setSyncStatus("err", "⚠️ Configura la URL de Apps Script");
+    document.getElementById("loading").classList.add("hide");
+    cargarDemo(); return;
+  }
+  setSyncStatus("loading", "Sincronizando…");
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=getAll`, { mode:"cors" });
+    const d = await r.json();
+    if (d.ok) {
+      vehicles   = d.vehicles  || [];
+      vendedores = d.vendedores || [...new Set(vehicles.map(v => v.vendedor))].filter(Boolean).sort();
+      setSyncStatus("ok", "Sincronizado con Google Sheets");
+      document.getElementById("last-sync").textContent =
+        "Última sync: " + new Date().toLocaleTimeString("es-CO");
+      poblarFiltros();
+      renderGrid();
+      renderGerente();
+    } else { throw new Error(d.error || "Error"); }
+  } catch(e) {
+    setSyncStatus("err", "Error de conexión — mostrando caché");
+    console.error(e);
+    if (!vehicles.length) cargarDemo();
+  }
+  document.getElementById("loading").classList.add("hide");
+}
+
+async function apiPost(payload) {
+  if (APPS_SCRIPT_URL === "TU_URL_AQUI_PLACEHOLDER_NO_REAL") {
+    toast("⚠️ Sin URL de Apps Script — solo modo demo", "error"); return null;
+  }
+  setSyncStatus("loading","Guardando…");
+  try {
+    const r = await fetch(APPS_SCRIPT_URL, {
+      method:"POST", mode:"cors",
+      headers:{"Content-Type":"text/plain"},
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "Error al guardar");
+    setSyncStatus("ok","Guardado en Google Sheets ✓");
+    document.getElementById("last-sync").textContent =
+      "Última sync: " + new Date().toLocaleTimeString("es-CO");
+    return d;
+  } catch(e) {
+    setSyncStatus("err","Error al guardar");
+    toast("❌ " + e.message, "error");
+    return null;
+  }
+}
+
+function cargarDemo() {
+  vehicles = [
+    {id:"v1",placa:"ABC-123",marca:"Toyota",    modelo:"Hilux",    ano:2022,color:"Blanco",km:"45,200",vendedor:"Carlos Mendoza",estado:"pdi",            prioridad:"alta",   fechaIngreso:"2026-06-03",fechaEntrega:"",         observaciones:"Revisar frenos delanteros"},
+    {id:"v2",placa:"XYZ-456",marca:"Mazda",     modelo:"CX-5",     ano:2023,color:"Gris",  km:"12,800",vendedor:"Ana Torres",    estado:"alistamiento",   prioridad:"normal", fechaIngreso:"2026-06-08",fechaEntrega:"",         observaciones:""},
+    {id:"v3",placa:"DEF-789",marca:"Ford",      modelo:"Ranger",   ano:2021,color:"Negro", km:"67,400",vendedor:"Carlos Mendoza",estado:"listo_entregado",prioridad:"normal", fechaIngreso:"2026-06-05",fechaEntrega:"2026-06-10",observaciones:"Entregado a tiempo"},
+    {id:"v4",placa:"GHI-321",marca:"Chevrolet", modelo:"Tracker",  ano:2024,color:"Rojo",  km:"3,100", vendedor:"Roberto Silva", estado:"lavado",         prioridad:"urgente",fechaIngreso:"2026-06-11",fechaEntrega:"",         observaciones:"Cliente espera hoy"},
+    {id:"v5",placa:"JKL-654",marca:"Nissan",    modelo:"Frontier", ano:2022,color:"Plata", km:"38,900",vendedor:"Lucía Herrera", estado:"polarizado",     prioridad:"normal", fechaIngreso:"2026-06-07",fechaEntrega:"",         observaciones:""},
+    {id:"v6",placa:"MNO-987",marca:"Kia",       modelo:"Sportage", ano:2023,color:"Azul",  km:"21,500",vendedor:"Ana Torres",    estado:"recibido",       prioridad:"alta",   fechaIngreso:"2026-06-10",fechaEntrega:"",         observaciones:"Verificar documentos"},
+    {id:"v7",placa:"PQR-555",marca:"Toyota",    modelo:"RAV4",     ano:2023,color:"Gris",  km:"18,400",vendedor:"Carlos Mendoza",estado:"alistamiento",   prioridad:"urgente",fechaIngreso:"2026-06-04",fechaEntrega:"",         observaciones:"Cliente llamó 3 veces"},
+    {id:"v8",placa:"STU-222",marca:"Renault",   modelo:"Duster",   ano:2022,color:"Blanco",km:"33,100",vendedor:"Lucía Herrera", estado:"pdi",            prioridad:"normal", fechaIngreso:"2026-06-09",fechaEntrega:"",         observaciones:""},
+  ];
+  vendedores = ["Carlos Mendoza","Ana Torres","Roberto Silva","Lucía Herrera"];
+  poblarFiltros(); renderGrid(); renderGerente();
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER — GRID DE TARJETAS
+// ════════════════════════════════════════════════════════════
+function filtrados() {
+  const bus  = document.getElementById("busqueda").value.toLowerCase();
+  const vend = document.getElementById("fil-vendedor").value;
+  const est  = document.getElementById("fil-estado").value;
+  const pri  = document.getElementById("fil-prioridad").value;
+  return vehicles
+    .filter(v =>
+      (!vend || v.vendedor === vend) &&
+      (!est  || v.estado   === est)  &&
+      (!pri  || v.prioridad === pri) &&
+      (!soloActivos || v.estado !== "listo_entregado") &&
+      (!bus  || `${v.placa} ${v.marca} ${v.modelo} ${v.vendedor}`.toLowerCase().includes(bus))
+    )
+    .sort((a,b) => {
+      if (a.prioridad==="urgente" && b.prioridad!=="urgente") return -1;
+      if (b.prioridad==="urgente" && a.prioridad!=="urgente") return 1;
+      return dias(b) - dias(a);
+    });
+}
+
+function renderGrid() {
+  const list = filtrados();
+  const grid = document.getElementById("grid");
+  const activos = vehicles.filter(v => v.estado !== "listo_entregado").length;
+  document.getElementById("active-count").textContent =
+    `${activos} activos · ${new Date().toLocaleDateString("es-CO",{day:"numeric",month:"short"})}`;
+  document.getElementById("count").textContent =
+    `${list.length} vehículo${list.length!==1?"s":""} · ${list.filter(v=>v.prioridad==="urgente"&&v.estado!=="listo_entregado").length} urgentes activos`;
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>
+      <div style="font-size:15px;font-weight:600;color:#475569">Sin resultados</div>
+      <div style="font-size:12px;margin-top:6px">Ajusta los filtros</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(v => cardHTML(v)).join("");
+}
+
+function cardHTML(v) {
+  const est      = getEstado(v.estado);
+  const pri      = getPrioridad(v.prioridad);
+  const d        = dias(v);
+  const entregado = v.estado === "listo_entregado";
+  const idx       = FASES.indexOf(v.estado);
+  const pct       = Math.round((idx / (FASES.length-1)) * 100);
+  const ac        = alertaColor(d);
+  const al        = entregado ? `✓ ${d}d` : `${alertaLabel(d)} · ${d}d`;
+
+  const dotsHTML = ESTADOS.map((e, i) =>
+    `<div class="progress-dot" style="background:${i<=idx?e.color:'var(--surface2)'};border-color:${i<=idx?e.color:'var(--border2)'}"></div>`
+  ).join("");
+
+  const editBtn = canEdit
+    ? `<button class="btn btn-blue" onclick="abrirEdit('${v.id}')">✏️ Editar</button>
+       <button class="btn btn-danger" onclick="eliminar('${v.id}')">🗑</button>`
+    : "";
+
+  return `
+  <div class="card ${v.prioridad==="urgente"&&!entregado?"urgente":""} ${entregado?"entregado":""}">
+    <div class="card-top">
+      <div>
+        <div class="card-name">${v.marca} ${v.modelo}</div>
+        <div class="card-sub">${v.ano} · ${v.color} · ${v.km} km</div>
+      </div>
+      <div class="card-badges">
+        <span class="badge" style="background:${est.bg};color:${est.color};border-color:${est.color}40">${est.label}</span>
+        ${v.prioridad!=="normal"?`<span class="badge badge-sm" style="color:${pri.color};background:${pri.color}20;border-color:${pri.color}40">${pri.label}</span>`:""}
+      </div>
+    </div>
+    <div class="card-info">
+      <span class="placa">🏷 ${v.placa}</span>
+      <span>👤 ${v.vendedor}</span>
+      <span>📅 ${v.fechaIngreso}</span>
+      ${v.fechaEntrega?`<span style="color:var(--green)">🏁 ${v.fechaEntrega}</span>`:""}
+    </div>
+    <div style="margin-top:8px">
+      <span class="badge" style="color:${ac};background:${ac}20;border-color:${ac}40">${al}</span>
+    </div>
+    ${v.observaciones?`<div class="card-obs">💬 ${v.observaciones}</div>`:""}
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span style="color:${est.color};font-weight:700">${est.label}</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:${pct}%;background:${est.color}"></div>
+      </div>
+      <div class="progress-dots">${dotsHTML}</div>
+    </div>
+    ${canEdit?`<div class="card-actions">${editBtn}</div>`:""}
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER — GERENCIA
+// ════════════════════════════════════════════════════════════
+function renderGerente() {
+  const total    = vehicles.length;
+  const activos  = vehicles.filter(v=>v.estado!=="listo_entregado").length;
+  const listos   = vehicles.filter(v=>v.estado==="listo_entregado").length;
+  const urgentes = vehicles.filter(v=>v.prioridad==="urgente"&&v.estado!=="listo_entregado").length;
+  const criticos = vehicles.filter(v=>dias(v)>=5&&v.estado!=="listo_entregado").length;
+  const prom     = total ? (vehicles.reduce((s,v)=>s+dias(v),0)/total).toFixed(1) : 0;
+
+  const kpis = [
+    {icon:"🚗",value:total,   label:"Total",          color:"#3B82F6"},
+    {icon:"⚙️",value:activos, label:"En proceso",      color:"#8B5CF6"},
+    {icon:"✅",value:listos,  label:"Entregados",      color:"#10B981"},
+    {icon:"🔴",value:urgentes,label:"Urgentes",        color:"#EF4444"},
+    {icon:"⚠️",value:criticos,label:"Críticos +5d",    color:"#F59E0B"},
+    {icon:"📅",value:prom,    label:"Días promedio",   color:"#EC4899"},
+  ];
+
+  document.getElementById("kpi-grid").innerHTML = kpis.map(k => `
+    <div class="kpi-card" style="border-color:${k.color}25">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-value" style="color:${k.color}">${k.value}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`).join("");
+
+  // Pipeline
+  document.getElementById("pipeline").innerHTML = ESTADOS.map(est => {
+    const count = vehicles.filter(v=>v.estado===est.id).length;
+    const pct   = total>0 ? (count/total)*100 : 0;
+    return `<div class="pipe-row">
+      <div class="pipe-labels">
+        <span style="color:${est.color};font-weight:600">${est.label}</span>
+        <span style="color:var(--muted)">${count} vehículo${count!==1?"s":""}</span>
+      </div>
+      <div class="progress-bar-bg" style="height:8px">
+        <div class="progress-bar-fill" style="width:${pct}%;background:${est.color}"></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Por vendedor
+  const vends = [...new Set(vehicles.map(v=>v.vendedor))].filter(Boolean).sort();
+  document.getElementById("por-vendedor").innerHTML = vends.map(vend => {
+    const mine    = vehicles.filter(v=>v.vendedor===vend);
+    const enProc  = mine.filter(v=>v.estado!=="listo_entregado").length;
+    const entrega = mine.filter(v=>v.estado==="listo_entregado").length;
+    const urg     = mine.filter(v=>v.prioridad==="urgente"&&v.estado!=="listo_entregado").length;
+    const p       = mine.length?(mine.reduce((s,v)=>s+dias(v),0)/mine.length).toFixed(1):0;
+    return `<div class="vend-row">
+      <div class="vend-name">👤 ${vend}</div>
+      <div class="vend-stats">
+        <span style="color:#8B5CF6">${enProc} en proceso</span>
+        <span style="color:#10B981">${entrega} entregados</span>
+        ${urg>0?`<span style="color:#EF4444;font-weight:700">⚠️ ${urg} urgente${urg>1?"s":""}</span>`:""}
+        <span style="color:var(--muted)">~${p}d prom.</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ════════════════════════════════════════════════════════════
+// VISTAS / FILTROS
+// ════════════════════════════════════════════════════════════
+function setVista(v) {
+  vistaActual = v;
+  document.getElementById("vista-tablero").style.display = v==="tablero"?"block":"none";
+  document.getElementById("vista-gerente").style.display = v==="gerente"?"block":"none";
+  document.getElementById("tab-tablero").classList.toggle("active", v==="tablero");
+  document.getElementById("tab-gerente").classList.toggle("active", v==="gerente");
+  if (v==="gerente") renderGerente();
+}
+
+function toggleActivos() {
+  soloActivos = !soloActivos;
+  const btn = document.getElementById("btn-activos");
+  btn.style.background    = soloActivos ? "#1E3A5F" : "var(--surface)";
+  btn.style.borderColor   = soloActivos ? "#3B82F6" : "var(--border2)";
+  btn.style.color         = soloActivos ? "#93C5FD" : "var(--muted)";
+  btn.style.fontWeight    = soloActivos ? "700" : "400";
+  renderGrid();
+}
+
+function poblarFiltros() {
+  const fv = document.getElementById("fil-vendedor");
+  const fe = document.getElementById("fil-estado");
+  const vv = document.getElementById("n-vendedor");
+  const ev = document.getElementById("edit-vendedor");
+  const vends = [...new Set(vehicles.map(v=>v.vendedor))].filter(Boolean).sort();
+
+  fv.innerHTML = `<option value="">👤 Todos los vendedores</option>`
+    + vends.map(v=>`<option>${v}</option>`).join("");
+  fe.innerHTML = `<option value="">📋 Todos los estados</option>`
+    + ESTADOS.map(e=>`<option value="${e.id}">${e.label}</option>`).join("");
+  [vv, ev].forEach(sel => {
+    if (sel) sel.innerHTML = vends.map(v=>`<option>${v}</option>`).join("");
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL EDITAR
+// ════════════════════════════════════════════════════════════
+function abrirEdit(id) {
+  const v = vehicles.find(x=>x.id===id);
+  if (!v) return;
+  editId      = id;
+  editEstadoVal = v.estado;
+  editPrioVal   = v.prioridad;
+
+  document.getElementById("edit-title").textContent = `✏️ ${v.marca} ${v.modelo}`;
+  document.getElementById("edit-sub").textContent   = `Placa: ${v.placa}`;
+  document.getElementById("edit-fechaEntrega").value = v.fechaEntrega || "";
+  document.getElementById("edit-observaciones").value = v.observaciones || "";
+
+  renderToggle("edit-estados",    ESTADOS,     editEstadoVal, val => { editEstadoVal = val; });
+  renderToggle("edit-prioridades",PRIORIDADES, editPrioVal,   val => { editPrioVal   = val; });
+  poblarFiltros();
+  document.getElementById("edit-vendedor").value = v.vendedor || "";
+  document.getElementById("modal-edit").style.display = "flex";
+}
+
+async function guardarEdit() {
+  const v = vehicles.find(x=>x.id===editId);
+  if (!v) return;
+  const updated = {
+    ...v,
+    estado:        editEstadoVal,
+    prioridad:     editPrioVal,
+    fechaEntrega:  document.getElementById("edit-fechaEntrega").value,
+    vendedor:      document.getElementById("edit-vendedor").value,
+    observaciones: document.getElementById("edit-observaciones").value,
+  };
+  const res = await apiPost({ action:"update", vehicle: updated });
+  if (res) {
+    vehicles = vehicles.map(x=>x.id===editId ? updated : x);
+    cerrarEdit(); renderGrid(); renderGerente();
+    toast("✅ Cambios guardados", "success");
+  }
+}
+
+function cerrarEdit() {
+  document.getElementById("modal-edit").style.display = "none";
+  editId = null;
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL NUEVO
+// ════════════════════════════════════════════════════════════
+function abrirNuevo() {
+  nuevoEstado    = "recibido";
+  nuevoPrioridad = "normal";
+  document.getElementById("n-ano").value = new Date().getFullYear();
+  document.getElementById("n-fechaIngreso").value = new Date().toISOString().split("T")[0];
+  ["n-placa","n-marca","n-modelo","n-color","n-km","n-obs"].forEach(id =>
+    document.getElementById(id).value = "");
+  renderToggle("nuevo-estados",     ESTADOS,     nuevoEstado,    val => { nuevoEstado    = val; });
+  renderToggle("nuevo-prioridades", PRIORIDADES, nuevoPrioridad, val => { nuevoPrioridad = val; });
+  poblarFiltros();
+  document.getElementById("modal-nuevo").style.display = "flex";
+}
+
+async function guardarNuevo() {
+  const nuevo = {
+    id:            "v" + Date.now(),
+    placa:         document.getElementById("n-placa").value.trim(),
+    marca:         document.getElementById("n-marca").value.trim(),
+    modelo:        document.getElementById("n-modelo").value.trim(),
+    ano:           document.getElementById("n-ano").value,
+    color:         document.getElementById("n-color").value.trim(),
+    km:            document.getElementById("n-km").value.trim(),
+    vendedor:      document.getElementById("n-vendedor").value,
+    estado:        nuevoEstado,
+    prioridad:     nuevoPrioridad,
+    fechaIngreso:  document.getElementById("n-fechaIngreso").value,
+    fechaEntrega:  "",
+    observaciones: document.getElementById("n-obs").value.trim(),
+  };
+  if (!nuevo.placa || !nuevo.marca || !nuevo.modelo) {
+    toast("⚠️ Completa placa, marca y modelo", "error"); return;
+  }
+  const res = await apiPost({ action:"add", vehicle: nuevo });
+  if (res) {
+    vehicles.push(nuevo);
+    cerrarNuevo(); renderGrid(); renderGerente();
+    toast("✅ Vehículo agregado", "success");
+  }
+}
+
+function cerrarNuevo() {
+  document.getElementById("modal-nuevo").style.display = "none";
+}
+
+// ════════════════════════════════════════════════════════════
+// ELIMINAR
+// ════════════════════════════════════════════════════════════
+async function eliminar(id) {
+  if (!confirm("¿Eliminar este vehículo?")) return;
+  const res = await apiPost({ action:"delete", id });
+  if (res) {
+    vehicles = vehicles.filter(v=>v.id!==id);
+    renderGrid(); renderGerente();
+    toast("🗑 Vehículo eliminado", "success");
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// TOGGLE BUTTONS (estados / prioridades)
+// ════════════════════════════════════════════════════════════
+function renderToggle(containerId, items, selected, onChange) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = items.map(item => {
+    const active = item.id === selected;
+    const bg  = active ? (item.bg  || `${item.color}20`) : "var(--surface2)";
+    const col = active ? item.color : "var(--muted)";
+    const brd = active ? item.color : "var(--border2)";
+    return `<button class="toggle-btn" data-id="${item.id}"
+      style="background:${bg};color:${col};border-color:${brd}"
+      onclick="selectToggle('${containerId}','${item.id}',this)">${item.label}</button>`;
+  }).join("");
+  container.dataset.onChange = ""; // placeholder
+  container._onChange = onChange;
+}
+
+function selectToggle(containerId, selectedId, btn) {
+  const container = document.getElementById(containerId);
+  const items = containerId.includes("estado") || containerId.includes("Estado")
+    ? ESTADOS : PRIORIDADES;
+  items.forEach(item => {
+    const b = container.querySelector(`[data-id="${item.id}"]`);
+    if (!b) return;
+    const active = item.id === selectedId;
+    b.style.background   = active ? (item.bg || `${item.color}20`) : "var(--surface2)";
+    b.style.color        = active ? item.color : "var(--muted)";
+    b.style.borderColor  = active ? item.color : "var(--border2)";
+  });
+  if (container._onChange) container._onChange(selectedId);
+}
+
+// ════════════════════════════════════════════════════════════
+// PIN / OPS MODE
+// ════════════════════════════════════════════════════════════
+function abrirPin() {
+  document.getElementById("pin-input").value = "";
+  document.getElementById("pin-error").textContent = "";
+  document.getElementById("pin-modal").style.display = "flex";
+  setTimeout(() => document.getElementById("pin-input").focus(), 100);
+}
+
+function cerrarPin() {
+  document.getElementById("pin-modal").style.display = "none";
+}
+
+function pinError(show, msg="") {
+  const inp = document.getElementById("pin-input");
+  inp.classList.toggle("error", show);
+  document.getElementById("pin-error").textContent = show ? msg : "";
+}
+
+function verificarPin() {
+  const val = document.getElementById("pin-input").value;
+  if (val === PIN_OPERACIONES) {
+    cerrarPin(); activarOps();
+  } else {
+    pinError(true, "PIN incorrecto");
+    document.getElementById("pin-input").value = "";
+    setTimeout(() => pinError(false), 1500);
+  }
+}
+
+function activarOps() {
+  canEdit = true;
+  document.getElementById("ops-banner").classList.add("show");
+  document.getElementById("btn-ops").style.display = "none";
+  document.getElementById("btn-nuevo").style.display = "block";
+  renderGrid();
+}
+
+function salirOps() {
+  canEdit = false;
+  document.getElementById("ops-banner").classList.remove("show");
+  document.getElementById("btn-ops").style.display = "block";
+  document.getElementById("btn-nuevo").style.display = "none";
+  renderGrid();
+}
+
+// ════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type="success") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = "", 3000);
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+window.addEventListener("DOMContentLoaded", () => {
+  cargarDatos();
+  syncInterval = setInterval(cargarDatos, AUTO_SYNC_MS);
+  // Cerrar modales con Escape
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      cerrarEdit(); cerrarNuevo(); cerrarPin();
+    }
+  });
+});
+</script>
+</body>
+</html>
